@@ -84,23 +84,71 @@ function listMajors(auth,req,res) {
 
   const sheets = google.sheets({version: 'v4', auth});
   sheets.spreadsheets.values.get({
-    spreadsheetId: '1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms',
-    range: 'Class Data!A2:E',
+    //spreadsheetId: '1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms',
+    spreadsheetId: '1bCgCA-YJxcH9SVkPIEtHnjaIZaAZgnSaf9epuHkfmF4',
+    range: 'A2:Q',
   }, (err, result) => {
     if (err) return console.log('The API returned an error: ' + err);
+
     const rows = result.data.values;
+
+    const apiResult = [];
+
     if (rows.length) {
+
       console.log('Name, Major:');
       // Print columns A and E, which correspond to indices 0 and 4.
+
       rows.map((row) => {
-        console.log(`${row[0]}, ${row[4]}`);
+
+          //column index for is your event part of osmgeoweek is 15
+          //https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals
+          var templateLiteralString = row[15];
+
+          //console.log('print type templateLiteralString');
+          //console.log(typeof templateLiteralString);
+          //console.log(templateLiteralString);
+
+          if (templateLiteralString) {  
+
+              //var n = templateLiteralString.localeCompare("yes");
+              //console.log('print n');
+              //console.log(n);
+
+              if (templateLiteralString == "Yes") { 
+                
+                //console.log('templateLiteralString equals yes');
+                //console.log(templateLiteralString);
+                //console.log(`${row[0]}, ${row[15]}`);
+
+                apiResult.push({ 
+                    "timestamp" : `${row[0]}`,
+                    "org_name"  : `${row[3]}`,
+                    "location"  : `${row[4]}`,
+                    "country"  : `${row[5]}`,
+                    "date"  : `${row[6]}`,
+                    "start_time"  : `${row[7]}`,
+                    "end_time"  : `${row[8]}`,
+                    "sign_up_link"  : `${row[10]}`,
+                    "venue_name"  : `${row[12]}`,
+                    "osm_link"  : `${row[13]}`,
+                    "mapping_party_name"  : `${row[14]}`
+                });
+
+              }
+          }
+        
       });
-      console.log('print rows');
-      console.log(rows);
+
+      console.log('apiResult');
+      console.log(apiResult);
+
+      //console.log('print rows');
+      //console.log(rows);
 
       //res.send('get events!');
 
-      res.json(rows);
+      res.json(apiResult);
 
 
 
@@ -118,7 +166,7 @@ app.get('/', function (req, res) {
 })
 
 
-app.get('/events2/', function (req,res) {
+app.get('/events/', function (req,res) {
   // Load client secrets from a local file.
   //https://stackoverflow.com/questions/10058814/get-data-from-fs-readfile
   //function you have defined is an asynchronous callback. It doesn't execute right away, rather it executes when the file loading has completed. When you call readFile, control is returned immediately and the next line of code is executed.
