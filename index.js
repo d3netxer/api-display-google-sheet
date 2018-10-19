@@ -25,7 +25,7 @@ var rows;
  * @param {Object} credentials The authorization client credentials.
  * @param {function} callback The callback to call with the authorized client.
  */
-function authorize(credentials, callback) {
+function authorize(credentials, callback, req, res) {
   const {client_secret, client_id, redirect_uris} = credentials.installed;
   const oAuth2Client = new google.auth.OAuth2(
       client_id, client_secret, redirect_uris[0]);
@@ -36,7 +36,7 @@ function authorize(credentials, callback) {
     oAuth2Client.setCredentials(JSON.parse(token));
     console.log('before callback');
     //console.log(res);
-    callback(oAuth2Client,req,res,);
+    callback(oAuth2Client,req,res);
 
   });
 }
@@ -80,7 +80,7 @@ function getNewToken(oAuth2Client, callback) {
 
 
 
-function listMajors(auth,req,res,) {
+function listMajors(auth,req,res) {
 
   const sheets = google.sheets({version: 'v4', auth});
   sheets.spreadsheets.values.get({
@@ -97,18 +97,12 @@ function listMajors(auth,req,res,) {
       });
       console.log('print rows');
       console.log(rows);
-      mainData = 20;
-      console.log('print mainData inside listMajors function');
-      console.log(mainData);
 
-      res.send('get events!');
+      //res.send('get events!');
 
-      //return rows;
-      //console.log('this comment is after the authorize code');
-      //console.log('print mainData inside listMajors2');
-      //console.log(rows);
-      //callback('get events3');
-      //return 'get events3';
+      res.json(rows);
+
+
 
     } else {
       console.log('No data found.');
@@ -124,10 +118,6 @@ app.get('/', function (req, res) {
 })
 
 
-listMajorsWrapper(function() {
-  return MajorsWrapper(req,res);
-});
-  
 app.get('/events2/', function (req,res) {
   // Load client secrets from a local file.
   //https://stackoverflow.com/questions/10058814/get-data-from-fs-readfile
@@ -135,7 +125,7 @@ app.get('/events2/', function (req,res) {
   fs.readFile('credentials.json', (err, content) => {
     if (err) return console.log('Error loading client secret file:', err);
     // Authorize a client with credentials, then call the Google Sheets API.
-    authorize(JSON.parse(content), listMajorsWrapper);
+    authorize(JSON.parse(content), listMajors, req, res);
   });
 })
 
