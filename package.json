@@ -21,7 +21,6 @@
     "uuid": "^3.3.2"
   },
   "devDependencies": {
-    "@mapbox/mapbox-sdk": "^0.4.1",
     "serverless-offline": "^3.27.0"
   }
 }

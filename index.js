@@ -197,9 +197,18 @@ app.get('/', function (req, res) {
 
 app.get('/events/', function (req,res) {
 
-  //load MapBox access token
+  //load google_sheet_id
+  fs.readFile('google_sheet_id.json', (err, content) => {
+    if (err) return console.log('need a google_sheet_id.json config file with google sheet id');
+    console.log('print content');
+    console.log(JSON.parse(content).google_sheet_id);
+    var google_sheet_id = JSON.parse(content).google_sheet_id;
+    console.log('loaded Google Sheet ID');
+  });
+
+  //load Google Sheet ID
   fs.readFile('mapbox_access_token.json', (err, content) => {
-    if (err) return console.log('need a config.json file with MapBox ClientID Token');
+    if (err) return console.log('need a mapbox_access_token.json config file with MapBox ClientID Token');
     //console.log('print content');
     //console.log(JSON.parse(content).access_token);
     var mapbox_access_token = JSON.parse(content).access_token;
