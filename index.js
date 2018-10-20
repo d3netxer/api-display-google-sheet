@@ -17,8 +17,8 @@ const app = express()
 
 app.use(cors())
 
-var mainData = 10;
-var rows;
+// This app uses code from Google Node.js Quickstart
+// https://developers.google.com/sheets/api/quickstart/nodejs
 
 
 /**
@@ -77,7 +77,6 @@ function getNewToken(oAuth2Client, callback) {
 
 function geocode (location) {
 
-
   return new Promise((resolve, reject) => {
 
         console.log("inside geocode function");
@@ -85,47 +84,29 @@ function geocode (location) {
         //console.log(country);
 
         geo.geocode('mapbox.places', location, function (err, geoData) {
-                      //console.log(geoData.features[0].center[0]);
-                      //console.log(geoData.features[0].center[1]);
 
-                      //console.log('api result about to get pushed')
-                      //console.log(apiResult);
-                      lat =  geoData.features[0].center[0].toString() ;
-                      lon =  geoData.features[0].center[1].toString() ;
-                      //apiEntry.push("lon"  : geoData.features[0].center[1].toString());
-                      //console.log('apiEntry');
-                      //console.log(apiEntry);
+                  lat =  geoData.features[0].center[0].toString() ;
+                  lon =  geoData.features[0].center[1].toString() ;
 
-                      resolve([lat,lon]);
+                  //console.log('apiEntry');
+                  //console.log(apiEntry);
 
-                      //console.log('apiResult before push');
-                      //console.log(apiResult);
-
-                      //apiResult.push(apiEntry);
-
-                      
+                  resolve([lat,lon]);
           });
 
-
-
     })
-
-
-
 }
 
-
 /**
- * Prints the names and majors of students in a sample spreadsheet:
- * @see https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/edit
+ * Processes the columns in a spreadsheet
  * @param {google.auth.OAuth2} auth The authenticated Google OAuth client.
  */
 
-function listMajors(auth,req,res) {
+function processSheet(auth,req,res) {
 
   const sheets = google.sheets({version: 'v4', auth});
   sheets.spreadsheets.values.get({
-    //spreadsheetId: '1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms',
+    //sample spreadsheet: spreadsheetId: '1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms',
     spreadsheetId: '1bCgCA-YJxcH9SVkPIEtHnjaIZaAZgnSaf9epuHkfmF4',
     range: 'A2:Q',
   }, (err, result) => {
@@ -136,9 +117,6 @@ function listMajors(auth,req,res) {
       var apiResult = [];
 
       if (rows.length) {
-
-        //console.log('Name, Major:');
-        // Print columns A and E, which correspond to indices 0 and 4.
 
         //keep only rows that are part of OSMGeoWeek
         var geoweekRows = [] 
@@ -166,7 +144,6 @@ function listMajors(auth,req,res) {
               //console.log(lon);
               //return 'lat';
 
-
               var apiEntry = {
                     "timestamp" : `${row[0]}`,
                     "org_name"  : `${row[3]}`,
@@ -188,10 +165,7 @@ function listMajors(auth,req,res) {
 
               apiResult.push(apiEntry);
 
-
             })
-
-
 
       });
 
@@ -209,23 +183,12 @@ function listMajors(auth,req,res) {
             console.error(e);
           })
 
-      //console.log('geocoder test');
-      // Geocode an address to coordinates
-      /*
-      geo.geocode('mapbox.places', 'Dam Square, Amsterdam', function (err, geoData) {
-        console.log(geoData.features[0].center);
-      });
-      */
-
-      
-
     } else {
       console.log('No data found.');
     }
   });
 
 }
-
 
 app.get('/', function (req, res) {
   res.send('Hello World!')
@@ -235,7 +198,7 @@ app.get('/', function (req, res) {
 app.get('/events/', function (req,res) {
 
   //load MapBox access token
-  fs.readFile('mapbox_client_id.json', (err, content) => {
+  fs.readFile('mapbox_access_token.json', (err, content) => {
     if (err) return console.log('need a config.json file with MapBox ClientID Token');
     //console.log('print content');
     //console.log(JSON.parse(content).access_token);
@@ -250,7 +213,7 @@ app.get('/events/', function (req,res) {
   fs.readFile('credentials.json', (err, content) => {
     if (err) return console.log('Error loading client secret file:', err);
     // Authorize a client with credentials, then call the Google Sheets API.
-    authorize(JSON.parse(content), listMajors, req, res);
+    authorize(JSON.parse(content), processSheet, req, res);
   });
 
 })
