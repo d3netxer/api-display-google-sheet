@@ -1,5 +1,7 @@
+mapbox_access_token.json
 credentials.json
 token.json
+.DS_Store
 package-lock.json
 /node_modules
 *~
