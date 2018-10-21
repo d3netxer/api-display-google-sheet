@@ -19,7 +19,10 @@ functions:
             path: /
             method: any
       - http: 
-            path: '{proxy+}'
+            path: '/events/'
+            method: any
+      - http: 
+            path: '/events_geojson/'
             method: any
 
 

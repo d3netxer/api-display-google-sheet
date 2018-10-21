@@ -190,6 +190,108 @@ function processSheet(auth,req,res) {
 
 }
 
+
+
+function processSheetGeoJSON(auth,req,res) {
+
+  const sheets = google.sheets({version: 'v4', auth});
+  sheets.spreadsheets.values.get({
+    //sample spreadsheet: spreadsheetId: '1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms',
+    spreadsheetId: '1bCgCA-YJxcH9SVkPIEtHnjaIZaAZgnSaf9epuHkfmF4',
+    range: 'A2:Q',
+  }, (err, result) => {
+      if (err) return console.log('The API returned an error: ' + err);
+
+      const rows = result.data.values;
+
+      var apiGeoJSONResult = {};
+      apiGeoJSONResult['type'] = 'FeatureCollection';
+      apiGeoJSONResult['features'] = [];
+      
+
+      if (rows.length) {
+
+        //keep only rows that are part of OSMGeoWeek
+        var geoweekRows = [] 
+
+        var i;
+        for (i = 0; i < rows.length; i++) { 
+            var templateLiteralString = rows[i][15];
+            if (templateLiteralString) {  
+              if (templateLiteralString == "Yes") { 
+                geoweekRows.push(rows[i]);
+              }
+            }
+        }
+
+        console.log('print geoweekRows length');
+        console.log(geoweekRows.length);
+
+        let promises = geoweekRows.map(row => {
+          return geocode(`${row[4]},${row[5]}`)
+          //return geocode("sterling","virginia")
+            .then(function(result) {
+              console.log('print result');
+              console.log(result);
+              //console.log(lat);
+              //console.log(lon);
+              //return 'lat';
+
+              var newFeature = 
+                  {
+                    "type": "Feature",
+                    "geometry": {
+                      "type": "Point",
+                      "coordinates": [result[1].toString(), result[0].toString()]
+                    },
+                    "properties": {
+                      "timestamp" : `${row[0]}`,
+                      "org_name"  : `${row[3]}`,
+                      "location"  : `${row[4]}`,
+                      "country"  : `${row[5]}`,
+                      "date"  : `${row[6]}`,
+                      "start_time"  : `${row[7]}`,
+                      "end_time"  : `${row[8]}`,
+                      "sign_up_link"  : `${row[10]}`,
+                      "venue_name"  : `${row[12]}`,
+                      "osm_link"  : `${row[13]}`,
+                      "mapping_party_name"  : `${row[14]}`
+                    }
+                  }
+
+              //console.log('print apiEntry');
+              //console.log(apiEntry);
+
+              //apiResult.push(apiEntry);
+              apiGeoJSONResult['features'].push(newFeature);
+
+            })
+
+      });
+
+
+        // Wait for all Promises to complete
+        Promise.all(promises)
+          .then(results => {
+            // Handle results
+            console.log('apiResult after Promise all');
+            console.log(apiGeoJSONResult);
+
+            res.json(apiGeoJSONResult);
+          })
+          .catch(e => {
+            console.error(e);
+          })
+
+    } else {
+      console.log('No data found.');
+    }
+  });
+
+}
+
+
+
 app.get('/', function (req, res) {
   res.send('Hello World!')
 })
@@ -223,6 +325,40 @@ app.get('/events/', function (req,res) {
     if (err) return console.log('Error loading client secret file:', err);
     // Authorize a client with credentials, then call the Google Sheets API.
     authorize(JSON.parse(content), processSheet, req, res);
+  });
+
+})
+
+
+
+app.get('/events_geojson/', function (req,res) {
+
+  //load google_sheet_id
+  fs.readFile('google_sheet_id.json', (err, content) => {
+    if (err) return console.log('need a google_sheet_id.json config file with google sheet id');
+    console.log('print content');
+    console.log(JSON.parse(content).google_sheet_id);
+    var google_sheet_id = JSON.parse(content).google_sheet_id;
+    console.log('loaded Google Sheet ID');
+  });
+
+  //load Google Sheet ID
+  fs.readFile('mapbox_access_token.json', (err, content) => {
+    if (err) return console.log('need a mapbox_access_token.json config file with MapBox ClientID Token');
+    //console.log('print content');
+    //console.log(JSON.parse(content).access_token);
+    var mapbox_access_token = JSON.parse(content).access_token;
+    geo.setAccessToken(mapbox_access_token);
+    console.log('loaded MapBox ClientID Token');
+  });
+
+  // Load client secrets from a local file.
+  //https://stackoverflow.com/questions/10058814/get-data-from-fs-readfile
+  //function you have defined is an asynchronous callback. It doesn't execute right away, rather it executes when the file loading has completed. When you call readFile, control is returned immediately and the next line of code is executed.
+  fs.readFile('credentials.json', (err, content) => {
+    if (err) return console.log('Error loading client secret file:', err);
+    // Authorize a client with credentials, then call the Google Sheets API.
+    authorize(JSON.parse(content), processSheetGeoJSON, req, res);
   });
 
 })
