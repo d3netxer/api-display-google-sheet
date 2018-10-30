@@ -242,7 +242,7 @@ function processSheetGeoJSON(auth,req,res) {
                     "type": "Feature",
                     "geometry": {
                       "type": "Point",
-                      "coordinates": [result[1].toString(), result[0].toString()]
+                      "coordinates": [result[0].toString(),result[1].toString()]
                     },
                     "properties": {
                       "timestamp" : `${row[0]}`,
