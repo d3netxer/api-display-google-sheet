@@ -79,14 +79,19 @@ function geocode (location) {
 
   return new Promise((resolve, reject) => {
 
-        console.log("inside geocode function");
-        console.log(location);
+        
         //console.log(country);
 
         geo.geocode('mapbox.places', location, function (err, geoData) {
 
-                  lat =  geoData.features[0].center[0].toString() ;
-                  lon =  geoData.features[0].center[1].toString() ;
+                  lon =  geoData.features[0].center[0].toString();
+                  lat =  geoData.features[0].center[1].toString();
+
+                  //console.log("inside geocode function");
+                  //console.log(location);
+
+                  //console.log(lat);
+                  //console.log(lon);
 
                   //console.log('apiEntry');
                   //console.log(apiEntry);
@@ -96,6 +101,12 @@ function geocode (location) {
 
     })
 }
+
+
+function escapeUnicode(str) {
+    return str.replace(/é/g, "e").replace(/š/g, "s").replace(/ě/g, "e").replace(/ü/g, "u").replace(/Ž/g, "Z")
+}
+
 
 /**
  * Processes the columns in a spreadsheet
@@ -108,11 +119,15 @@ function processSheet(auth,req,res) {
   sheets.spreadsheets.values.get({
     //sample spreadsheet: spreadsheetId: '1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms',
     spreadsheetId: '1bCgCA-YJxcH9SVkPIEtHnjaIZaAZgnSaf9epuHkfmF4',
-    range: 'A2:Q',
+    range: 'A1075:S',
   }, (err, result) => {
       if (err) return console.log('The API returned an error: ' + err);
 
       const rows = result.data.values;
+
+      console.log('print rows');
+      console.log(rows[9][9]);
+
 
       var apiResult = [];
 
@@ -123,7 +138,7 @@ function processSheet(auth,req,res) {
 
         var i;
         for (i = 0; i < rows.length; i++) { 
-            var templateLiteralString = rows[i][15];
+            var templateLiteralString = rows[i][9];
             if (templateLiteralString) {  
               if (templateLiteralString == "Yes") { 
                 geoweekRows.push(rows[i]);
@@ -131,15 +146,25 @@ function processSheet(auth,req,res) {
             }
         }
 
-        console.log('print geoweekRows length');
-        console.log(geoweekRows.length);
+        //console.log('print geoweekRows length1');
+        //console.log(geoweekRows.length);
+
+
+
+        //get rid of special characters for locations
+        for (var i = 0; i < geoweekRows.length; i++) {
+            //console.log(geoweekRows[i][4]);
+            geoweekRows[i][4] = escapeUnicode(geoweekRows[i][4]);
+            //console.log(geoweekRows[i][4]);
+        }
 
         let promises = geoweekRows.map(row => {
           return geocode(`${row[4]},${row[5]}`)
           //return geocode("sterling","virginia")
             .then(function(result) {
-              console.log('print result');
-              console.log(result);
+              //console.log('print result1');
+              //console.log(geoweekRows[4]);
+              //console.log(result);
               //console.log(lat);
               //console.log(lon);
               //return 'lat';
@@ -174,8 +199,8 @@ function processSheet(auth,req,res) {
         Promise.all(promises)
           .then(results => {
             // Handle results
-            console.log('apiResult after Promise all');
-            console.log(apiResult);
+            //console.log('apiResult after Promise all');
+            //console.log(apiResult);
 
             res.json(apiResult);
           })
@@ -191,18 +216,22 @@ function processSheet(auth,req,res) {
 }
 
 
-
 function processSheetGeoJSON(auth,req,res) {
+
+  console.log('inside processSheet');
 
   const sheets = google.sheets({version: 'v4', auth});
   sheets.spreadsheets.values.get({
     //sample spreadsheet: spreadsheetId: '1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms',
     spreadsheetId: '1bCgCA-YJxcH9SVkPIEtHnjaIZaAZgnSaf9epuHkfmF4',
-    range: 'A2:Q',
+    range: 'A1075:S',
   }, (err, result) => {
       if (err) return console.log('The API returned an error: ' + err);
 
       const rows = result.data.values;
+
+      //console.log('print rows');
+      //console.log(rows);
 
       var apiGeoJSONResult = {};
       apiGeoJSONResult['type'] = 'FeatureCollection';
@@ -216,7 +245,7 @@ function processSheetGeoJSON(auth,req,res) {
 
         var i;
         for (i = 0; i < rows.length; i++) { 
-            var templateLiteralString = rows[i][15];
+            var templateLiteralString = rows[i][9];
             if (templateLiteralString) {  
               if (templateLiteralString == "Yes") { 
                 geoweekRows.push(rows[i]);
@@ -224,15 +253,22 @@ function processSheetGeoJSON(auth,req,res) {
             }
         }
 
-        console.log('print geoweekRows length');
-        console.log(geoweekRows.length);
+        //get rid of special characters for locations
+        for (var i = 0; i < geoweekRows.length; i++) {
+            //console.log(geoweekRows[i][4]);
+            geoweekRows[i][4] = escapeUnicode(geoweekRows[i][4]);
+            //console.log(geoweekRows[i][4]);
+        }
+
+        //console.log('print geoweekRows length2');
+        //console.log(geoweekRows.length);
 
         let promises = geoweekRows.map(row => {
           return geocode(`${row[4]},${row[5]}`)
           //return geocode("sterling","virginia")
             .then(function(result) {
-              console.log('print result');
-              console.log(result);
+              //console.log('print result2');
+              //console.log(result);
               //console.log(lat);
               //console.log(lon);
               //return 'lat';
@@ -242,7 +278,7 @@ function processSheetGeoJSON(auth,req,res) {
                     "type": "Feature",
                     "geometry": {
                       "type": "Point",
-                      "coordinates": [result[0].toString(), result[1].toString()]
+                      "coordinates": [result[1].toString(), result[0].toString()]
                     },
                     "properties": {
                       "timestamp" : `${row[0]}`,
