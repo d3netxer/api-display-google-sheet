@@ -1,25 +1,50 @@
 const fs = require('fs');
 const readline = require('readline');
 const {google} = require('googleapis');
-
-// If modifying these scopes, delete token.json.
-const SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly'];
-const TOKEN_PATH = 'token.json';
-
-const MAPBOX_ClientID_PATH = 'token.json';
-
-var geo = require('mapbox-geocoding');
-
+const AWS = require('aws-sdk');
 const serverless = require('serverless-http');
+const bodyParser = require('body-parser');
 const express = require('express')
 var cors = require('cors')
 const app = express()
 
 app.use(cors())
 
+// This is set in the serverless.yml within the Provider then environment section
+const LOCATION_TABLE = process.env.LOCATION_TABLE;
+
+let dynamoDb;
+
+app.use(bodyParser.json({ strict: false }));
+
+// The serverless-offline plugin sets an environment variable of IS_OFFLINE to true
+const IS_OFFLINE = process.env.IS_OFFLINE;
+
+if (IS_OFFLINE === 'true') {
+  dynamoDb = new AWS.DynamoDB.DocumentClient({
+    region: 'localhost',
+    endpoint: 'http://localhost:8000'
+  })
+  console.log(dynamoDb);
+} else {
+  dynamoDb = new AWS.DynamoDB.DocumentClient();
+};
+
+
+// If modifying these scopes, delete token.json.
+const SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly'];
+// The file token.json stores the user's access and refresh tokens, and is
+// created automatically when the authorization flow completes for the first
+// time.
+const TOKEN_PATH = 'token.json';
+
+const MAPBOX_ClientID_PATH = 'token.json';
+var geo = require('mapbox-geocoding');
+
+
+
 // This app uses code from Google Node.js Quickstart
 // https://developers.google.com/sheets/api/quickstart/nodejs
-
 
 /**
  * Create an OAuth2 client with the given credentials, and then execute the
@@ -75,29 +100,80 @@ function getNewToken(oAuth2Client, callback) {
 }
 
 
-function geocode (location) {
+ 
+    
+
+function geocode(timestamp, place_country) {
 
   return new Promise((resolve, reject) => {
 
-        
-        //console.log(country);
 
-        geo.geocode('mapbox.places', location, function (err, geoData) {
+        
+        console.log('print only Timestamp');
+        console.log(timestamp);
+        
+        console.log('print only place_country');
+        console.log(place_country);
+        
+        const params = {
+            TableName: LOCATION_TABLE,
+            Key: {
+              timestamp: timestamp,
+            },
+          }
+          
+          dynamoDb.get(params, (error, result) => {
+            if (error) {
+              console.log(error);
+              console.log("Could not get location");
+            }
+            if (result.Item) {
+              const {timestamp, lat, lon} = result.Item;
+              //res.json({ timestamp, lat, lon });
+              //check if there is a match with timestamp and return lat and lon
+              console.log('resolving lat and lon');
+              resolve([lat,lon])
+            } else {
+              //else geocode and store in DynamoDB location table, and then return lat and lon
+              console.log("location not found");
+              
+              geo.geocode('mapbox.places', place_country, function (err, geoData) {
 
                   lon =  geoData.features[0].center[0].toString();
                   lat =  geoData.features[0].center[1].toString();
 
                   //console.log("inside geocode function");
                   //console.log(location);
-
                   //console.log(lat);
                   //console.log(lon);
-
                   //console.log('apiEntry');
                   //console.log(apiEntry);
+                  
+                  // store in DynamoDB Table
+                  const params = {
+                    TableName: LOCATION_TABLE,
+                    Item: {
+                      timestamp: timestamp,
+                      lat: lat,
+                      lon: lon
+                    },
+                  };
 
+                  dynamoDb.put(params, (error) => {
+                    if (error) {
+                      console.log(error);
+                      console.log('Could not create location');
+                    }
+                    console.log("saved location in DynamoDB table");
+                  });
+                    
                   resolve([lat,lon]);
+              });
+              
+            }
           });
+        
+        
 
     })
 }
@@ -115,18 +191,23 @@ function escapeUnicode(str) {
 
 function processSheet(auth,req,res) {
 
+
   const sheets = google.sheets({version: 'v4', auth});
   sheets.spreadsheets.values.get({
     //sample spreadsheet: spreadsheetId: '1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms',
-    spreadsheetId: '1bCgCA-YJxcH9SVkPIEtHnjaIZaAZgnSaf9epuHkfmF4',
-    range: 'A1075:S',
+    spreadsheetId: '14MaSKvz7WmTS0mrj_hystgtQSgkDUvgVJruT4lnbY_U',
+    range: 'A56:M',
   }, (err, result) => {
       if (err) return console.log('The API returned an error: ' + err);
 
       const rows = result.data.values;
 
       console.log('print rows');
-      console.log(rows[9][9]);
+      
+      //The column that asks if event is part of OSMGeoWeek is column k, or the 10th column
+      console.log(rows[0][10]);
+      console.log(rows[1][10]);
+      //console.log(rows);
 
 
       var apiResult = [];
@@ -138,7 +219,7 @@ function processSheet(auth,req,res) {
 
         var i;
         for (i = 0; i < rows.length; i++) { 
-            var templateLiteralString = rows[i][9];
+            var templateLiteralString = rows[i][10];
             if (templateLiteralString) {  
               if (templateLiteralString == "Yes") { 
                 geoweekRows.push(rows[i]);
@@ -149,8 +230,6 @@ function processSheet(auth,req,res) {
         //console.log('print geoweekRows length1');
         //console.log(geoweekRows.length);
 
-
-
         //get rid of special characters for locations
         for (var i = 0; i < geoweekRows.length; i++) {
             //console.log(geoweekRows[i][4]);
@@ -159,7 +238,8 @@ function processSheet(auth,req,res) {
         }
 
         let promises = geoweekRows.map(row => {
-          return geocode(`${row[4]},${row[5]}`)
+            
+          return geocode(`${row[0]}`,`${row[3]},${row[9]}`)
           //return geocode("sterling","virginia")
             .then(function(result) {
               //console.log('print result1');
@@ -171,16 +251,13 @@ function processSheet(auth,req,res) {
 
               var apiEntry = {
                     "timestamp" : `${row[0]}`,
-                    "org_name"  : `${row[3]}`,
-                    "location"  : `${row[4]}`,
-                    "country"  : `${row[5]}`,
+                    "event_name"  : `${row[2]}`,
+                    "location"  : `${row[3]}`,
+                    "country"  : `${row[9]}`,
                     "date"  : `${row[6]}`,
                     "start_time"  : `${row[7]}`,
                     "end_time"  : `${row[8]}`,
-                    "sign_up_link"  : `${row[10]}`,
-                    "venue_name"  : `${row[12]}`,
-                    "osm_link"  : `${row[13]}`,
-                    "mapping_party_name"  : `${row[14]}`,
+                    "sign_up_link"  : `${row[5]}`,
                     "lat"  : result[1].toString(),
                     "lon"  : result[0].toString()
                 }
@@ -223,8 +300,8 @@ function processSheetGeoJSON(auth,req,res) {
   const sheets = google.sheets({version: 'v4', auth});
   sheets.spreadsheets.values.get({
     //sample spreadsheet: spreadsheetId: '1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms',
-    spreadsheetId: '1bCgCA-YJxcH9SVkPIEtHnjaIZaAZgnSaf9epuHkfmF4',
-    range: 'A1075:S',
+    spreadsheetId: '14MaSKvz7WmTS0mrj_hystgtQSgkDUvgVJruT4lnbY_U',
+    range: 'A56:M',
   }, (err, result) => {
       if (err) return console.log('The API returned an error: ' + err);
 
@@ -245,7 +322,7 @@ function processSheetGeoJSON(auth,req,res) {
 
         var i;
         for (i = 0; i < rows.length; i++) { 
-            var templateLiteralString = rows[i][9];
+            var templateLiteralString = rows[i][10];
             if (templateLiteralString) {  
               if (templateLiteralString == "Yes") { 
                 geoweekRows.push(rows[i]);
@@ -256,7 +333,7 @@ function processSheetGeoJSON(auth,req,res) {
         //get rid of special characters for locations
         for (var i = 0; i < geoweekRows.length; i++) {
             //console.log(geoweekRows[i][4]);
-            geoweekRows[i][4] = escapeUnicode(geoweekRows[i][4]);
+            geoweekRows[i][3] = escapeUnicode(geoweekRows[i][3]);
             //console.log(geoweekRows[i][4]);
         }
 
@@ -264,7 +341,7 @@ function processSheetGeoJSON(auth,req,res) {
         //console.log(geoweekRows.length);
 
         let promises = geoweekRows.map(row => {
-          return geocode(`${row[4]},${row[5]}`)
+          return geocode(`${row[0]}`,`${row[3]},${row[9]}`)
           //return geocode("sterling","virginia")
             .then(function(result) {
               //console.log('print result2');
@@ -281,20 +358,20 @@ function processSheetGeoJSON(auth,req,res) {
                       "coordinates": [result[1].toString(), result[0].toString()]
                     },
                     "properties": {
-                      "timestamp" : `${row[0]}`,
-                      "org_name"  : `${row[3]}`,
-                      "location"  : `${row[4]}`,
-                      "country"  : `${row[5]}`,
-                      "date"  : `${row[6]}`,
-                      "start_time"  : `${row[7]}`,
-                      "end_time"  : `${row[8]}`,
-                      "sign_up_link"  : `${row[10]}`,
-                      "venue_name"  : `${row[12]}`,
-                      "osm_link"  : `${row[13]}`,
-                      "mapping_party_name"  : `${row[14]}`
+                        "timestamp" : `${row[0]}`,
+                        "event_name"  : `${row[2]}`,
+                        "location"  : `${row[3]}`,
+                        "country"  : `${row[9]}`,
+                        "date"  : `${row[6]}`,
+                        "start_time"  : `${row[7]}`,
+                        "end_time"  : `${row[8]}`,
+                        "sign_up_link"  : `${row[5]}`
                     }
                   }
 
+
+                    
+                    
               //console.log('print apiEntry');
               //console.log(apiEntry);
 
@@ -331,6 +408,70 @@ function processSheetGeoJSON(auth,req,res) {
 app.get('/', function (req, res) {
   res.send('Hello World!')
 })
+
+// Get location endpoint
+app.get('/location/:timestamp', function (req, res) {
+  const params = {
+    TableName: LOCATION_TABLE,
+    Key: {
+      timestamp: req.params.timestamp,
+    },
+  }
+  dynamoDb.get(params, (error, result) => {
+    if (error) {
+      console.log(error);
+      res.status(400).json({ error: 'Could not get location' });
+    }
+    if (result.Item) {
+      const {timestamp, lat, lon} = result.Item;
+      res.json({ timestamp, lat, lon });
+    } else {
+      res.status(404).json({ error: "location not found" });
+    }
+  });
+})
+
+// Create location endpoint, used for local testing
+/*
+app.post('/location', function (req, res) {
+  const { timestamp, lat, lon } = req.body;
+  
+  console.log('print timestamp');
+  console.log(timestamp);
+  console.log('print lat');
+  console.log(lat);
+  console.log('print lon');
+  console.log(lon);
+
+  if (typeof timestamp !== 'string') {
+    res.status(400).json({ error: '"timestamp" must be a string' });
+  } else if (typeof lat !== 'string') {
+    res.status(400).json({ error: '"lat" must be a string' });
+  } else if (typeof lon !== 'string') {
+    res.status(400).json({ error: '"lon" must be a string' });
+  }
+  
+
+  const params = {
+    TableName: LOCATION_TABLE,
+    Item: {
+      timestamp: timestamp,
+      lat: lat,
+      lon: lon
+    },
+  };
+
+
+  dynamoDb.put(params, (error) => {
+    if (error) {
+      console.log(error);
+      res.status(400).json({ error: 'Could not create location' });
+    }
+    res.json({ timestamp, lat, lon });
+  });
+
+})
+*/
 
 
 app.get('/events/', function (req,res) {

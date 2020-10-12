@@ -1,15 +1,37 @@
 # serverless.yml
 
-service: api-display-google-sheet
+service: api-display-google-sheet2020
 
 plugins:
+  - serverless-dynamodb-local
   - serverless-offline #serverless-offline needs to be last in the list
 
+custom:
+  tableName: 'geojson-osmgeoweek-table-${self:provider.stage}'
+  dynamodb:
+    start:
+      migrate: true
+    stages: # adding dev to stages whitelist: https://github.com/99xt/serverless-dynamodb-local/issues/225
+      - dev
+      
 provider:
   name: aws
   runtime: nodejs10.x
   stage: dev
   region: us-east-1
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:Query
+        - dynamodb:Scan
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+        - dynamodb:UpdateItem
+        - dynamodb:DeleteItem
+      Resource:
+        - { "Fn::GetAtt": ["UsersDynamoDBTable", "Arn" ] }
+  environment:
+    LOCATION_TABLE: ${self:custom.tableName}
 
 functions:
   app:
@@ -24,7 +46,29 @@ functions:
       - http: 
             path: '/events_geojson/'
             method: any
+  getUser:
+    handler: index.handler
+    events:
+      - http: 'GET /location/{proxy+}'
+  createUser:
+    handler: index.handler
+    events:
+      - http: 'POST /location'
+      
 
-
-
+resources: # CloudFormation template syntax from here on.
+  Resources:
+    UsersDynamoDBTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.tableName}
+        AttributeDefinitions:
+          - AttributeName: timestamp
+            AttributeType: S
+        KeySchema:
+          - AttributeName: timestamp
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
 
