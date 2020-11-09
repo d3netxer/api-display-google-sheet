@@ -100,20 +100,16 @@ function getNewToken(oAuth2Client, callback) {
 }
 
 
- 
-    
 
 function geocode(timestamp, place_country) {
 
   return new Promise((resolve, reject) => {
 
-
+        //console.log('print only Timestamp');
+        //console.log(timestamp);
         
-        console.log('print only Timestamp');
-        console.log(timestamp);
-        
-        console.log('print only place_country');
-        console.log(place_country);
+        //console.log('print only place_country');
+        //console.log(place_country);
         
         const params = {
             TableName: LOCATION_TABLE,
@@ -139,16 +135,21 @@ function geocode(timestamp, place_country) {
               
               geo.geocode('mapbox.places', place_country, function (err, geoData) {
 
-                  lon =  geoData.features[0].center[0].toString();
-                  lat =  geoData.features[0].center[1].toString();
 
-                  //console.log("inside geocode function");
-                  //console.log(location);
-                  //console.log(lat);
-                  //console.log(lon);
-                  //console.log('apiEntry');
-                  //console.log(apiEntry);
-                  
+                  if (geoData === undefined) {
+                      console.log("geoData is undefined");
+                      console.log("inside geocode function");
+                      console.log('place_country');
+                      console.log(place_country);
+                      // if undefined give coords in the middle of the Atlantic Ocean
+                      lat = 27.034013
+                      lon = -43.451320
+                  } else {
+                      lat =  geoData.features[0].center[1].toString();
+                      lon =  geoData.features[0].center[0].toString();
+                  }
+
+
                   // store in DynamoDB Table
                   const params = {
                     TableName: LOCATION_TABLE,
