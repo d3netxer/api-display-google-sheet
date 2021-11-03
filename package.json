@@ -10,20 +10,20 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "aws-sdk": "^2.769.0",
+    "aws-sdk": "^2.1020.0",
     "body-parser": "^1.19.0",
     "cors": "*",
     "express": "*",
-    "googleapis": "*",
+    "googleapis": "^89.0.0",
     "mapbox-geocoding": "*",
     "request": "*",
-    "serverless-http": "^2.6.0",
-    "uuid": "^8.3.1"
+    "serverless-http": "^2.7.0",
+    "uuid": "^8.3.2"
   },
   "devDependencies": {
-    "serverless": "^2.5.0",
-    "serverless-dynamodb-local": "*",
-    "serverless-offline": "^6.8.0",
+    "serverless": "^2.64.1",
+    "serverless-dynamodb-local": "^0.2.40",
+    "serverless-offline": "^6.9.0",
     "serverless-offline-python": "*"
   }
 }
