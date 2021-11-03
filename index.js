@@ -10,6 +10,8 @@ const app = express()
 
 app.use(cors())
 
+console.log('starting script');
+
 // This is set in the serverless.yml within the Provider then environment section
 const LOCATION_TABLE = process.env.LOCATION_TABLE;
 
@@ -52,6 +54,8 @@ var geo = require('mapbox-geocoding');
  * @param {Object} credentials The authorization client credentials.
  * @param {function} callback The callback to call with the authorized client.
  */
+
+
 function authorize(credentials, callback, req, res) {
   const {client_secret, client_id, redirect_uris} = credentials.installed;
   const oAuth2Client = new google.auth.OAuth2(
@@ -196,8 +200,8 @@ function processSheet(auth,req,res) {
   const sheets = google.sheets({version: 'v4', auth});
   sheets.spreadsheets.values.get({
     //sample spreadsheet: spreadsheetId: '1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms',
-    spreadsheetId: '14MaSKvz7WmTS0mrj_hystgtQSgkDUvgVJruT4lnbY_U',
-    range: 'A56:M',
+    spreadsheetId: '1ViYq4HZF6jVbAVCLz1YQLOyTHEV_8H4h9H7XRfw6DP4',
+    range: 'A1:J',
   }, (err, result) => {
       if (err) return console.log('The API returned an error: ' + err);
 
@@ -206,9 +210,10 @@ function processSheet(auth,req,res) {
       console.log('print rows');
       
       //The column that asks if event is part of OSMGeoWeek is column k, or the 10th column
-      console.log(rows[0][10]);
-      console.log(rows[1][10]);
+      //console.log(rows[0][10]);
+      //console.log(rows[1][10]);
       //console.log(rows);
+      console.log(rows[0])
 
 
       var apiResult = [];
@@ -219,13 +224,17 @@ function processSheet(auth,req,res) {
         var geoweekRows = [] 
 
         var i;
+        // for (i = 0; i < rows.length; i++) { 
+        //     var templateLiteralString = rows[i][10];
+        //     if (templateLiteralString) {  
+        //       if (templateLiteralString == "Yes") { 
+        //         geoweekRows.push(rows[i]);
+        //       }
+        //     }
+        // }
+
         for (i = 0; i < rows.length; i++) { 
-            var templateLiteralString = rows[i][10];
-            if (templateLiteralString) {  
-              if (templateLiteralString == "Yes") { 
-                geoweekRows.push(rows[i]);
-              }
-            }
+          geoweekRows.push(rows[i]);
         }
 
         //console.log('print geoweekRows length1');
@@ -234,13 +243,13 @@ function processSheet(auth,req,res) {
         //get rid of special characters for locations
         for (var i = 0; i < geoweekRows.length; i++) {
             //console.log(geoweekRows[i][4]);
-            geoweekRows[i][4] = escapeUnicode(geoweekRows[i][4]);
+            geoweekRows[i][3] = escapeUnicode(geoweekRows[i][3]);
             //console.log(geoweekRows[i][4]);
         }
 
         let promises = geoweekRows.map(row => {
             
-          return geocode(`${row[0]}`,`${row[3]},${row[9]}`)
+          return geocode(`${row[0]}`,`${row[3]},${row[2]}`)
           //return geocode("sterling","virginia")
             .then(function(result) {
               //console.log('print result1');
@@ -252,12 +261,10 @@ function processSheet(auth,req,res) {
 
               var apiEntry = {
                     "timestamp" : `${row[0]}`,
-                    "event_name"  : `${row[2]}`,
+                    "event_name"  : `${row[1]}`,
                     "location"  : `${row[3]}`,
-                    "country"  : `${row[9]}`,
-                    "date"  : `${row[6]}`,
-                    "start_time"  : `${row[7]}`,
-                    "end_time"  : `${row[8]}`,
+                    "country"  : `${row[2]}`,
+                    "date"  : `${row[4]}`,
                     "sign_up_link"  : `${row[5]}`,
                     "lat"  : result[1].toString(),
                     "lon"  : result[0].toString()
@@ -301,15 +308,15 @@ function processSheetGeoJSON(auth,req,res) {
   const sheets = google.sheets({version: 'v4', auth});
   sheets.spreadsheets.values.get({
     //sample spreadsheet: spreadsheetId: '1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms',
-    spreadsheetId: '14MaSKvz7WmTS0mrj_hystgtQSgkDUvgVJruT4lnbY_U',
-    range: 'A56:M',
+    spreadsheetId: '1ViYq4HZF6jVbAVCLz1YQLOyTHEV_8H4h9H7XRfw6DP4',
+    range: 'A1:J',
   }, (err, result) => {
       if (err) return console.log('The API returned an error: ' + err);
 
       const rows = result.data.values;
 
-      //console.log('print rows');
-      //console.log(rows);
+      console.log('print rows');
+      console.log(rows);
 
       var apiGeoJSONResult = {};
       apiGeoJSONResult['type'] = 'FeatureCollection';
@@ -323,12 +330,7 @@ function processSheetGeoJSON(auth,req,res) {
 
         var i;
         for (i = 0; i < rows.length; i++) { 
-            var templateLiteralString = rows[i][10];
-            if (templateLiteralString) {  
-              if (templateLiteralString == "Yes") { 
-                geoweekRows.push(rows[i]);
-              }
-            }
+          geoweekRows.push(rows[i]);
         }
 
         //get rid of special characters for locations
@@ -342,7 +344,7 @@ function processSheetGeoJSON(auth,req,res) {
         //console.log(geoweekRows.length);
 
         let promises = geoweekRows.map(row => {
-          return geocode(`${row[0]}`,`${row[3]},${row[9]}`)
+          return geocode(`${row[0]}`,`${row[3]},${row[2]}`)
           //return geocode("sterling","virginia")
             .then(function(result) {
               //console.log('print result2');
@@ -360,12 +362,10 @@ function processSheetGeoJSON(auth,req,res) {
                     },
                     "properties": {
                         "timestamp" : `${row[0]}`,
-                        "event_name"  : `${row[2]}`,
+                        "event_name"  : `${row[1]}`,
                         "location"  : `${row[3]}`,
-                        "country"  : `${row[9]}`,
-                        "date"  : `${row[6]}`,
-                        "start_time"  : `${row[7]}`,
-                        "end_time"  : `${row[8]}`,
+                        "country"  : `${row[2]}`,
+                        "date"  : `${row[4]}`,
                         "sign_up_link"  : `${row[5]}`
                     }
                   }
